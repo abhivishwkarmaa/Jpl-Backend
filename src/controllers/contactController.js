@@ -1,12 +1,31 @@
 const { prisma } = require('../lib/prisma');
+const { validatePhone, validateName, validateEmail, validateText } = require('../lib/validation');
 
 // Public: Submit contact inquiry
 async function createInquiry(req, res) {
   try {
     const { name, email, phone, serviceOfInterest, message } = req.body;
 
-    if (!name || !email || !message) {
-      return res.status(400).json({ error: 'Name, email and message are required' });
+    const nameCheck = validateName(name, 'Name', true);
+    if (!nameCheck.isValid) {
+      return res.status(400).json({ error: nameCheck.error });
+    }
+
+    const emailCheck = validateEmail(email, true);
+    if (!emailCheck.isValid) {
+      return res.status(400).json({ error: emailCheck.error });
+    }
+
+    if (phone) {
+      const phoneCheck = validatePhone(phone, false);
+      if (!phoneCheck.isValid) {
+        return res.status(400).json({ error: phoneCheck.error });
+      }
+    }
+
+    const msgCheck = validateText(message, 3, 3000, 'Message', true);
+    if (!msgCheck.isValid) {
+      return res.status(400).json({ error: msgCheck.error });
     }
 
     const inquiry = await prisma.contactInquiry.create({
@@ -14,7 +33,7 @@ async function createInquiry(req, res) {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: (phone || '').trim(),
-        serviceOfInterest: serviceOfInterest || 'General Inquiry',
+        serviceOfInterest: (serviceOfInterest || 'General Inquiry').slice(0, 100),
         message: message.trim(),
       },
     });

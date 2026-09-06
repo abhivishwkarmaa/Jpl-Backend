@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const { validateUrl } = require('../lib/validation');
 
 // Public: Get published blogs or single blog by slug
 async function getPublicBlogs(req, res) {
@@ -106,12 +107,28 @@ async function createBlog(req, res) {
       createdAt,
     } = req.body;
 
-    if (!title || !slug) {
-      return res.status(400).json({ error: 'Title and Slug are required fields' });
+    if (!title || !title.trim() || title.trim().length < 3) {
+      return res.status(400).json({ error: 'Title must be at least 3 characters' });
+    }
+
+    if (!slug || !slug.trim()) {
+      return res.status(400).json({ error: 'Slug is required' });
+    }
+
+    const cleanSlug = slug.trim().toLowerCase();
+    if (!/^[a-z0-9-]+$/.test(cleanSlug)) {
+      return res.status(400).json({ error: 'Slug can only contain lowercase letters, numbers, and hyphens' });
+    }
+
+    if (canonicalUrl) {
+      const canonCheck = validateUrl(canonicalUrl, false);
+      if (!canonCheck.isValid) {
+        return res.status(400).json({ error: `Canonical URL: ${canonCheck.error}` });
+      }
     }
 
     const existing = await prisma.blog.findUnique({
-      where: { slug },
+      where: { slug: cleanSlug },
     });
     if (existing) {
       return res.status(400).json({
@@ -168,8 +185,19 @@ async function updateBlog(req, res) {
       return res.json({ success: true, blog });
     }
 
-    // Check slug collision
+    // Validate title
+    if (fields.title !== undefined && fields.title.trim().length < 3) {
+      return res.status(400).json({ error: 'Title must be at least 3 characters' });
+    }
+
+    // Check slug format & collision
     if (fields.slug) {
+      const cleanSlug = fields.slug.trim().toLowerCase();
+      if (!/^[a-z0-9-]+$/.test(cleanSlug)) {
+        return res.status(400).json({ error: 'Slug can only contain lowercase letters, numbers, and hyphens' });
+      }
+      fields.slug = cleanSlug;
+
       const existing = await prisma.blog.findFirst({
         where: {
           slug: fields.slug,
@@ -180,6 +208,13 @@ async function updateBlog(req, res) {
         return res.status(400).json({
           error: 'Another blog post is already using this URL slug.',
         });
+      }
+    }
+
+    if (fields.canonicalUrl) {
+      const canonCheck = validateUrl(fields.canonicalUrl, false);
+      if (!canonCheck.isValid) {
+        return res.status(400).json({ error: `Canonical URL: ${canonCheck.error}` });
       }
     }
 

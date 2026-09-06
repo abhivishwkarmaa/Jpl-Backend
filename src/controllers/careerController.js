@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const { validatePhone, validateName, validateEmail, validateUrl } = require('../lib/validation');
 
 // Public: Get active jobs
 async function getPublicJobs(req, res) {
@@ -36,9 +37,30 @@ async function applyJob(req, res) {
     const applicantName = (candidateName || name || '').trim();
     const applicantEmail = (email || '').trim().toLowerCase();
     const applicantPhone = (phone || '').trim();
+    const targetResume = (resumeUrl || resume || '').trim();
 
-    if (!applicantName || !applicantEmail) {
-      return res.status(400).json({ error: 'Candidate name and email are required.' });
+    const nameCheck = validateName(applicantName, 'Candidate name', true);
+    if (!nameCheck.isValid) {
+      return res.status(400).json({ error: nameCheck.error });
+    }
+
+    const emailCheck = validateEmail(applicantEmail, true);
+    if (!emailCheck.isValid) {
+      return res.status(400).json({ error: emailCheck.error });
+    }
+
+    if (applicantPhone) {
+      const phoneCheck = validatePhone(applicantPhone, false);
+      if (!phoneCheck.isValid) {
+        return res.status(400).json({ error: phoneCheck.error });
+      }
+    }
+
+    if (targetResume) {
+      const resumeCheck = validateUrl(targetResume, false);
+      if (!resumeCheck.isValid) {
+        return res.status(400).json({ error: resumeCheck.error });
+      }
     }
 
     const application = await prisma.jobApplication.create({
@@ -101,8 +123,14 @@ async function createAdminJob(req, res) {
       isActive,
     } = req.body;
 
-    if (!title || !department || !location) {
-      return res.status(400).json({ error: 'Title, department, and location are required' });
+    if (!title || !title.trim() || title.trim().length < 3) {
+      return res.status(400).json({ error: 'Job title must be at least 3 characters' });
+    }
+    if (!department || !department.trim() || department.trim().length < 2) {
+      return res.status(400).json({ error: 'Department must be at least 2 characters' });
+    }
+    if (!location || !location.trim() || location.trim().length < 2) {
+      return res.status(400).json({ error: 'Location must be at least 2 characters' });
     }
 
     const job = await prisma.jobOpening.create({
@@ -132,6 +160,10 @@ async function updateAdminJob(req, res) {
 
     if (!id) {
       return res.status(400).json({ error: 'Job ID is required' });
+    }
+
+    if (data.title && data.title.trim().length < 3) {
+      return res.status(400).json({ error: 'Job title must be at least 3 characters' });
     }
 
     const updated = await prisma.jobOpening.update({

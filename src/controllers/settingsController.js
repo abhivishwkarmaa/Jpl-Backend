@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const { validatePhone, validateEmail, validateUrl } = require('../lib/validation');
 
 async function getSettings(req, res) {
   try {
@@ -45,6 +46,39 @@ async function updateSettings(req, res) {
       facebookUrl,
       instagramUrl,
     } = req.body;
+
+    if (phonePrimary) {
+      const p1 = validatePhone(phonePrimary, false);
+      if (!p1.isValid) return res.status(400).json({ success: false, error: `Primary phone: ${p1.error}` });
+    }
+    if (phoneSecondary) {
+      const p2 = validatePhone(phoneSecondary, false);
+      if (!p2.isValid) return res.status(400).json({ success: false, error: `Secondary phone: ${p2.error}` });
+    }
+    if (emailSupport) {
+      const e1 = validateEmail(emailSupport, false);
+      if (!e1.isValid) return res.status(400).json({ success: false, error: `Support email: ${e1.error}` });
+    }
+    if (emailCareers) {
+      const e2 = validateEmail(emailCareers, false);
+      if (!e2.isValid) return res.status(400).json({ success: false, error: `Careers email: ${e2.error}` });
+    }
+    if (linkedinUrl) {
+      const u1 = validateUrl(linkedinUrl, false);
+      if (!u1.isValid) return res.status(400).json({ success: false, error: `LinkedIn URL: ${u1.error}` });
+    }
+    if (twitterUrl) {
+      const u2 = validateUrl(twitterUrl, false);
+      if (!u2.isValid) return res.status(400).json({ success: false, error: `Twitter URL: ${u2.error}` });
+    }
+    if (facebookUrl) {
+      const u3 = validateUrl(facebookUrl, false);
+      if (!u3.isValid) return res.status(400).json({ success: false, error: `Facebook URL: ${u3.error}` });
+    }
+    if (instagramUrl) {
+      const u4 = validateUrl(instagramUrl, false);
+      if (!u4.isValid) return res.status(400).json({ success: false, error: `Instagram URL: ${u4.error}` });
+    }
 
     const settings = await prisma.companySettings.upsert({
       where: { id: 'default' },

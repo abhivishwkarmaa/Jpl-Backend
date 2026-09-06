@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma');
+const { validatePhone, validateName, validateEmail, validateText } = require('../lib/validation');
 
 // Public: Get comments for a blog post
 async function getComments(req, res) {
@@ -16,37 +17,42 @@ async function getComments(req, res) {
         where: { slug: String(slug) },
         select: { id: true, allowComments: true },
       });
-
       if (!blog) {
-        return res.json({ success: true, comments: [], allowComments: false });
+        return res.status(404).json({ success: false, error: 'Blog not found' });
       }
-
       targetBlogId = blog.id;
-    }
-
-    if (!targetBlogId) {
-      return res.json({ success: true, comments: [] });
     }
 
     const comments = await prisma.comment.findMany({
       where: {
-        blogId: targetBlogId,
+        blogId: String(targetBlogId),
         status: 'approved',
-        parentId: null,
-      },
-      include: {
-        replies: {
-          where: { status: 'approved' },
-          orderBy: { createdAt: 'asc' },
-        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return res.json({ success: true, comments });
+    const rootComments = [];
+    const replyMap = {};
+
+    comments.forEach((c) => {
+      if (!c.parentId) {
+        rootComments.push({ ...c, replies: [] });
+      } else {
+        if (!replyMap[c.parentId]) {
+          replyMap[c.parentId] = [];
+        }
+        replyMap[c.parentId].push(c);
+      }
+    });
+
+    rootComments.forEach((rc) => {
+      rc.replies = replyMap[rc.id] || [];
+    });
+
+    return res.json({ success: true, comments: rootComments });
   } catch (error) {
-    console.error('Error fetching comments:', error);
-    return res.status(500).json({ success: false, comments: [], error: error.message });
+    console.error('Failed to get comments:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch comments' });
   }
 }
 
@@ -55,12 +61,22 @@ async function createComment(req, res) {
   try {
     const { blogId, slug, authorName, authorContact, content, parentId } = req.body;
 
-    if (!authorName || !authorName.trim()) {
-      return res.status(400).json({ success: false, error: 'Please enter your name' });
+    const nameCheck = validateName(authorName, 'Name', true);
+    if (!nameCheck.isValid) {
+      return res.status(400).json({ success: false, error: nameCheck.error });
     }
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ success: false, error: 'Please enter a comment message' });
+    if (authorContact && authorContact.trim() && authorContact.trim().toLowerCase() !== 'guest') {
+      const emailCheck = validateEmail(authorContact.trim(), false);
+      const phoneCheck = validatePhone(authorContact.trim(), false);
+      if (!emailCheck.isValid && !phoneCheck.isValid) {
+        return res.status(400).json({ success: false, error: 'Contact must be a valid email or phone number' });
+      }
+    }
+
+    const contentCheck = validateText(content, 2, 2500, 'Comment message', true);
+    if (!contentCheck.isValid) {
+      return res.status(400).json({ success: false, error: contentCheck.error });
     }
 
     const cleanContact = authorContact && authorContact.trim() ? authorContact.trim() : 'Guest';
