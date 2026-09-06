@@ -10,12 +10,12 @@ async function getNotifications(req, res) {
     const [recentInquiries, recentApplications] = await Promise.all([
       prisma.contactInquiry.findMany({
         where: { status: 'new' },
-        take: 6,
+        take: 30,
         orderBy: { createdAt: 'desc' },
       }),
       prisma.jobApplication.findMany({
         where: { status: 'new' },
-        take: 6,
+        take: 30,
         include: { job: { select: { title: true } } },
         orderBy: { submittedAt: 'desc' },
       }),
