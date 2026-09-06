@@ -59,13 +59,11 @@ async function createComment(req, res) {
       return res.status(400).json({ success: false, error: 'Please enter your name' });
     }
 
-    if (!authorContact || !authorContact.trim()) {
-      return res.status(400).json({ success: false, error: 'Please enter your email or contact info' });
-    }
-
     if (!content || !content.trim()) {
       return res.status(400).json({ success: false, error: 'Please enter a comment message' });
     }
+
+    const cleanContact = authorContact && authorContact.trim() ? authorContact.trim() : 'Guest';
 
     let targetBlog = null;
     if (blogId) {
@@ -101,7 +99,7 @@ async function createComment(req, res) {
       data: {
         blogId: targetBlog.id,
         authorName: authorName.trim(),
-        authorContact: authorContact.trim(),
+        authorContact: cleanContact,
         content: content.trim(),
         parentId: parentId || null,
         status: 'approved',

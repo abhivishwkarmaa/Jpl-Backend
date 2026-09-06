@@ -19,7 +19,20 @@ async function getPublicBlogs(req, res) {
 
     const blogs = await prisma.blog.findMany({
       where: { status: 'published' },
-      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        excerpt: true,
+        featuredImage: true,
+        category: true,
+        author: true,
+        createdAt: true,
+      },
+      orderBy: [
+        { createdAt: 'desc' },
+        { updatedAt: 'desc' },
+      ],
     });
 
     return res.json({ success: true, blogs });
@@ -45,7 +58,21 @@ async function getAdminBlogs(req, res) {
     }
 
     const blogs = await prisma.blog.findMany({
-      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        category: true,
+        author: true,
+        status: true,
+        allowComments: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [
+        { createdAt: 'desc' },
+        { updatedAt: 'desc' },
+      ],
     });
     return res.json({ success: true, blogs });
   } catch (error) {
